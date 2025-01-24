@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 # Title and description with animation
@@ -52,10 +51,6 @@ if option == "Enter Details":
     # Logical validation
     logical_check = new_balance - old_balance == amount
 
-    # Display user input
-    st.subheader("User Input Parameters")
-    st.write(input_data)
-
     # Train the model on default data
     X = default_data[['amount', 'old_balance', 'new_balance', 'transaction_type']]
     y = default_data['is_fraud']
@@ -86,56 +81,30 @@ elif option == "Upload Dataset":
         st.write(data.head())
 
         # Check if required columns are present
-        required_columns = ['amount', 'old_balance', 'new_balance', 'transaction_type', 'is_fraud']
+        required_columns = ['amount', 'old_balance', 'new_balance', 'transaction_type']
         if all(column in data.columns for column in required_columns):
             # Preprocess the data
             X = data[['amount', 'old_balance', 'new_balance', 'transaction_type']]
-            y = data['is_fraud']
 
-            # Split data into train and test sets
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+            # Train the model using default data
+            y_default = default_data['is_fraud']
+            model.fit(default_data[['amount', 'old_balance', 'new_balance', 'transaction_type']], y_default)
 
-            # Train the model
-            model.fit(X_train, y_train)
+            # Predict fraud for the uploaded dataset
+            predictions = model.predict(X)
+            data['is_fraud'] = predictions  # Add predictions as a new column
 
-            # Display model accuracy
-            y_pred = model.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            st.write(f"Model Accuracy: {accuracy * 100:.2f}%")
+            st.subheader("Predicted Results")
+            st.write(data.head())
 
-            # Sidebar for input features
-            st.sidebar.header("Input Transaction Details")
-            amount = st.sidebar.number_input("Transaction Amount", min_value=0.0, step=0.01)
-            old_balance = st.sidebar.number_input("Old Balance", min_value=0.0, step=0.01)
-            new_balance = st.sidebar.number_input("New Balance", min_value=0.0, step=0.01)
-            transaction_type = st.sidebar.selectbox("Transaction Type", ["TRANSFER", "CASH_OUT"])
-
-            input_data = pd.DataFrame({
-                'amount': [amount],
-                'old_balance': [old_balance],
-                'new_balance': [new_balance],
-                'transaction_type': [0 if transaction_type == "TRANSFER" else 1]
-            })
-
-            # Logical validation
-            logical_check = new_balance - old_balance == amount
-
-            # Display user input
-            st.subheader("User Input Parameters")
-            st.write(input_data)
-
-            # Prediction based on user input
-            if st.button("Check for Fraudulent Payment"):
-                if logical_check:
-                    st.subheader("Prediction Result")
-                    st.write("✅ Transaction is Legitimate.")
-                else:
-                    prediction = model.predict(input_data)[0]
-                    st.subheader("Prediction Result")
-                    if prediction == 1:
-                        st.write("🚨 Fraudulent Transaction Detected!")
-                    else:
-                        st.write("✅ Transaction is Legitimate.")
+            # Allow download of the dataset with predictions
+            csv = data.to_csv(index=False)
+            st.download_button(
+                label="Download Dataset with Predictions",
+                data=csv,
+                file_name="predicted_fraud_dataset.csv",
+                mime="text/csv",
+            )
         else:
             st.write("Please make sure your dataset contains the following columns:", required_columns)
     else:
